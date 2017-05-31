@@ -25,8 +25,8 @@ class AISMultiModel:
         self.nr_Ab = nr_Ab
         self.nr_clones = nr_clones
         self.nr_gen = nr_gen
-        self.pm = 0.5
-        self.beta = beta
+        self.pm = float(0.5)
+        self.beta = float(beta)
         self.d = d
         self.x_bounds = x_bounds
         self.y_bounds = y_bounds
@@ -36,6 +36,7 @@ class AISMultiModel:
         self.best_ids = np.array([[0 for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         self.stable_ab_counter = np.array([[0 for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         self.pm_cell = [[self.pm for _ in range(self.nr_Ab)] for _ in self.nr_centers]
+        self.beta_cell = np.array([[self.beta for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         # matrix of memory cells and respective clones for every model
         self.Absc = [[[[0. for _ in range(c * dim + c)] for _ in range(nr_clones + 1)] for _ in range(nr_Ab)] for c in nr_centers]
         self.clones_fit = [[[0. for _ in range(nr_clones + 1)] for _ in range(nr_Ab)] for _ in range(self.nr_models)]         
@@ -256,12 +257,21 @@ class AISMultiModel:
             fit_new_Abs = parmap(self.fitness, new_Abs)  
             
         # introduce the new antibodies into the memory cells and set their fitness correspondingly
-        i = 0
+        i = 0 # incomers' counter
+        i_m = 0 # model's counter
         for m_d_lowest in d_lowest:
             for a_id in m_d_lowest:
-                self.Abs[i][a_id] = new_Abs[i][1:]
-                self.fit[i][a_id] = fit_new_Abs[i]
-            i += 1
+                self.Abs[i_m][a_id] = new_Abs[i][1:]
+                self.fit[i_m][a_id] = fit_new_Abs[i]
+                i += 1
+            i_m += 1
+      
+    def define_mut_param(self):
+        # stable antibodies are considered when their fitness are higher than a specific threshold
+        stable_abs = np.where(self.stable_ab_counter == 3)
+        # increases beta's values for antibody cells which have reached a steady state
+        self.beta_cell[stable_abs[0], stable_abs[1]] *= 1.618
+          
             
     def search(self):   
         for i in range(self.nr_gen):
@@ -271,6 +281,7 @@ class AISMultiModel:
             self.clone_mut()
             self.select()
             self.count_stable_ab()
+            self.define_mut_param()
             
             if (self.nr_gen % 20) == 0:
                 self.replace()
@@ -287,28 +298,35 @@ class AISMultiModel:
 # attribute's indexes to be mutated
 #mut_ids = np.where(0.001 > r)
 #ua = np.array(mut_ids).shape[1]
-# pm_vec = []
-# pm = 0.5
-# pmm = 1/float(6)
-# while (pm > pmm):    
-#     pm_vec.append(pm)
-#     pm = pm * 0.618
-#     
+# beta_vec = []
+# beta = 10
+# min_beta = 1000
+# while (beta < min_beta):    
+#     beta_vec.append(beta)
+#     beta = beta * 1.1618
+# #     
 # import matplotlib.pyplot as plt
-# plt.plot(pm_vec)
+# plt.plot(beta_vec)
 # plt.show()
+
+beta_mat = np.array([[1,1,1], [1,1,1]], dtype=float)
+stable_ab_counter = np.array([[0,1,0],[1,2,1]])
+stable_abs = np.where(stable_ab_counter < 0)
+
+beta_mat[stable_abs[0], stable_abs[1]] *= 1.618
+
 Abs = []
 dim = 2
 nr_centers = np.array([2, 3])
 print "number of centers for each unit cell: ", nr_centers
 print "number of populations: ", len(nr_centers)
-nr_Ab = 20
+nr_Ab = 3
 print "Number of individuals per population: ", nr_Ab
-nr_clones = 15
+nr_clones = 2
 print "number of clones per individual: ", nr_clones
-nr_gen = 300
+nr_gen = 10
 print "number of generations: ", nr_gen
-beta = 100
+beta = 10
 print "beta value: ", beta
 d = 4
 print "number of low affinity antibodies to be replaced: ", d
