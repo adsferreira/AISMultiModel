@@ -34,7 +34,7 @@ class AISMultiModel:
         self.fit = np.empty([self.nr_models, self.nr_Ab])
         self.opt_ainet_utils = OptAiNetUtils()
         self.best_ids = np.array([[0 for _ in range(self.nr_Ab)] for _ in self.nr_centers])
-        self.stable_ab_counter = np.array([[0 for _ in range(self.nr_Ab)] for _ in self.nr_centers])
+        self.stable_ab_counter = np.array([[int(0) for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         self.pm_cell = [[self.pm for _ in range(self.nr_Ab)] for _ in self.nr_centers]
         self.beta_cell = np.array([[self.beta for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         # matrix of memory cells and respective clones for every model
@@ -271,8 +271,9 @@ class AISMultiModel:
         stable_abs = np.where(self.stable_ab_counter == 3)
         # increases beta's values for antibody cells which have reached a steady state
         self.beta_cell[stable_abs[0], stable_abs[1]] *= 1.618
+        # reset stable antibodies counter
+        self.stable_ab_counter[stable_abs[0], stable_abs[1]] = int(0)
           
-            
     def search(self):   
         for i in range(self.nr_gen):
             print "----------------------------------------------------------------"
@@ -308,12 +309,6 @@ class AISMultiModel:
 # import matplotlib.pyplot as plt
 # plt.plot(beta_vec)
 # plt.show()
-
-beta_mat = np.array([[1,1,1], [1,1,1]], dtype=float)
-stable_ab_counter = np.array([[0,1,0],[1,2,1]])
-stable_abs = np.where(stable_ab_counter < 0)
-
-beta_mat[stable_abs[0], stable_abs[1]] *= 1.618
 
 Abs = []
 dim = 2
