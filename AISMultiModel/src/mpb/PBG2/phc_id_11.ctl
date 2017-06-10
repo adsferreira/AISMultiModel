@@ -9,10 +9,10 @@
 (set! k-points (interpolate 4 k-points))
 
 (set! geometry (list 
-                     (make cylinder (center 0.0239595907236 -0.107704958779 0.0) (radius 0.14435659183) (height infinity)
+                     (make cylinder (center -0.042758286892 0.0613552006652 0.0) (radius 0.432502553438) (height infinity)
                        (material (make dielectric (epsilon 12.082576)))
                      )
-                     (make cylinder (center -0.360810013017 -0.35416379673 0.0) (radius 0.084982112009) (height infinity)
+                     (make cylinder (center -0.144588208302 0.0564875535006 0.0) (radius 0.0283365631866) (height infinity)
                        (material (make dielectric (epsilon 12.082576)))
                      )
                )

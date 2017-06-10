@@ -25,17 +25,19 @@ class AISMultiModel:
         self.nr_Ab = nr_Ab
         self.nr_clones = nr_clones
         self.nr_gen = nr_gen
-        self.pm = float(0.5)
         self.beta = float(beta)
         self.d = d
         self.x_bounds = x_bounds
         self.y_bounds = y_bounds
         self.dim = dim
+        self.nr_attr = self.nr_centers * dim + self.nr_centers
+        self.pm = np.array([float(1.0) for _ in self.nr_centers])
+        self.pm_q = np.divide(float(1), self.nr_attr) ** (float(1) / self.nr_gen)
         self.fit = np.empty([self.nr_models, self.nr_Ab])
         self.opt_ainet_utils = OptAiNetUtils()
         self.best_ids = np.array([[0 for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         self.stable_ab_counter = np.array([[int(0) for _ in range(self.nr_Ab)] for _ in self.nr_centers])
-        self.pm_cell = [[self.pm for _ in range(self.nr_Ab)] for _ in self.nr_centers]
+        #self.pm_cell = [[self.pm for _ in range(self.nr_Ab)] for _ in self.nr_centers]
         self.beta_cell = np.array([[self.beta for _ in range(self.nr_Ab)] for _ in self.nr_centers])
         # matrix of memory cells and respective clones for every model
         self.Absc = [[[[0. for _ in range(c * dim + c)] for _ in range(nr_clones + 1)] for _ in range(nr_Ab)] for c in nr_centers]
@@ -150,7 +152,7 @@ class AISMultiModel:
         # for each model 
         for i in range(self.nr_models):               
             print "\nPopulation %d: %d centers" % (i, self.nr_centers[i])
-            nr_attr = self.nr_centers[i] * dim + self.nr_centers[i]
+            nr_attr = self.nr_attr[i]
                                     
             # for each parent cell
             for j in range(self.nr_Ab):
@@ -160,7 +162,7 @@ class AISMultiModel:
                 self.clones_fit[i][j][0] = self.fit[i][j]
                 
                 print "----------------------------------------------------------------"
-                print "cloning parent cell number: %d...\n" % (j)         
+                print "cloning parent cell: %d - beta: %0.3f - pm: %0.3f - stb: %d...\n" % (j, self.beta_cell[i][j], self.pm[i], self.stable_ab_counter[i][j])         
                 # counter of clones    
                 k = 1
                 
@@ -172,11 +174,12 @@ class AISMultiModel:
                         # outcome which determine if a attribute will be mutated or note
                         r = np.random.uniform(0, 1, nr_attr)
                         # attribute's indexes to be mutated
-                        mut_ids = np.where(self.pm > r)
+                        mut_ids = np.where(self.pm[i] > r)
                         # number of attributes to be mutated
                         nr_mut = np.array(mut_ids).shape[1]
                         # genetic variability of each attribute to be mutated
-                        gv = np.random.standard_normal(size = nr_mut) / self.beta * np.exp(-(self.fit[i][j] / max(self.fit[i])))
+                        _alpha = np.exp(-(self.fit[i][j] / max(self.fit[i]))) / self.beta_cell[i][j]
+                        gv = _alpha * np.random.standard_normal(size = nr_mut)
                         mut[mut_ids] = gv 
                         #print "mut: ", mut
                         Ab_mut = self.Abs[i][j] + mut
@@ -263,16 +266,23 @@ class AISMultiModel:
             for a_id in m_d_lowest:
                 self.Abs[i_m][a_id] = new_Abs[i][1:]
                 self.fit[i_m][a_id] = fit_new_Abs[i]
+                # reset attribute elements for new antibodies
+                self.beta_cell[i_m][a_id] = self.beta
+                self.stable_ab_counter[i_m][a_id] = int(0)
                 i += 1
             i_m += 1
       
-    def define_mut_param(self):
-        # stable antibodies are considered when their fitness are higher than a specific threshold
+    def define_mut_param(self, i):
+        # stable antibodies have their fitness unchanged over generations, respecting a specific threshold
         stable_abs = np.where(self.stable_ab_counter == 3)
         # increases beta's values for antibody cells which have reached a steady state
-        self.beta_cell[stable_abs[0], stable_abs[1]] *= 1.618
+        self.beta_cell[stable_abs[0], stable_abs[1]] *= 1.0618
         # reset stable antibodies counter
         self.stable_ab_counter[stable_abs[0], stable_abs[1]] = int(0)
+        
+        #update mutation probability
+        self.pm = 1.0 * (self.pm_q ** i) 
+        
           
     def search(self):   
         for i in range(self.nr_gen):
@@ -282,9 +292,9 @@ class AISMultiModel:
             self.clone_mut()
             self.select()
             self.count_stable_ab()
-            self.define_mut_param()
+            self.define_mut_param(i + 1)
             
-            if (self.nr_gen % 20) == 0:
+            if ((i + 1) % 20) == 0:
                 self.replace()
         
     def print_ab_fit(self, Ab, fit):
@@ -300,14 +310,31 @@ class AISMultiModel:
 #mut_ids = np.where(0.001 > r)
 #ua = np.array(mut_ids).shape[1]
 # beta_vec = []
-# beta = 10
-# min_beta = 1000
+# beta = 1
+# i = 0
+# min_beta = 300
 # while (beta < min_beta):    
 #     beta_vec.append(beta)
-#     beta = beta * 1.1618
-# #     
+#     beta = beta * 1.0618
+#     i += 1
+#     
 # import matplotlib.pyplot as plt
 # plt.plot(beta_vec)
+# plt.show()
+
+# m = 300
+# n = 300
+# a_n = 1 / float(m)
+# q = a_n ** (1 / float(n - 1))
+# a_1 = 1
+# 
+# pm_vec = []
+# for i in range(300):
+#     a_i = a_1 * (q ** i)
+#     pm_vec.append(a_i)
+#     
+# import matplotlib.pyplot as plt
+# plt.plot(pm_vec)
 # plt.show()
 
 Abs = []
@@ -315,15 +342,15 @@ dim = 2
 nr_centers = np.array([2, 3])
 print "number of centers for each unit cell: ", nr_centers
 print "number of populations: ", len(nr_centers)
-nr_Ab = 3
+nr_Ab = 2
 print "Number of individuals per population: ", nr_Ab
-nr_clones = 2
+nr_clones = 1
 print "number of clones per individual: ", nr_clones
-nr_gen = 10
+nr_gen = 22
 print "number of generations: ", nr_gen
-beta = 10
+beta = 1
 print "beta value: ", beta
-d = 4
+d = 1
 print "number of low affinity antibodies to be replaced: ", d
 x_bounds = [-0.5, 0.5]
 print "bounds in x-axis: ", x_bounds
